@@ -1,0 +1,88 @@
+#include <Servo.h>
+#include "DHT.h"
+
+//declare DHT sensor
+#define DHTPIN 8
+#define DHTTYPE DHT22
+DHT dht(DHTPIN, DHTTYPE);
+
+//declare pins
+const int servoPin = 6;
+const int fanPin = 7;
+const int humiditySensorPin = 8;
+const int lightSensorPin = 9;
+
+int i;
+Servo servo;
+
+void setup() {
+  Serial.begin(9600);
+
+  //init dht sensor
+  dht.begin();
+
+  pinMode(lightSensorPin, INPUT);
+  pinMode(fanPin, OUTPUT);
+
+  //close door
+  servo.attach(servoPin);
+  i = 165;
+  servo.write(i);
+}
+
+void loop() {
+  float humidity = dht.readHumidity();
+  float temperature = dht.readTemperature();
+
+  int isNight = digitalRead(lightSensorPin);
+
+  //print values for monitoring
+  Serial.print("It's night outside?: ");Serial.println(isNight);
+  Serial.print("Humidity: ");Serial.println(humidity);
+  Serial.print("Temperature: "); Serial.println(temperature);
+
+
+  servo.detach();
+  if (!isNight) {            //day:
+    if (temperature > 30) {  //too hot:
+      if (i > 80) {          //verifies if door already open
+        digitalWrite(fanPin, LOW);
+        servo.attach(servoPin);
+        //open protocol
+        for (i = 165; i >= 80; i -= 1) {
+          servo.write(i);
+          delay(100);
+        }
+        servo.detach();
+      }
+    }
+    if (humidity > 50) {
+      digitalWrite(fanPin, HIGH);
+    } else {
+      digitalWrite(fanPin, LOW);
+    }
+
+
+  } else if (isNight || temperature < 30) {  //night or cold outside:
+
+    if (i < 165) {  //verifies if door is already closed
+      digitalWrite(fanPin, LOW);
+      servo.attach(servoPin);
+      //close protocol
+      for (i = 80; i <= 165; i += 1) {
+        servo.write(i);
+        delay(100);
+      }
+      servo.detach();
+    }
+
+    if (humidity > 50) {
+      digitalWrite(fanPin, HIGH);
+    } else {
+      digitalWrite(fanPin, LOW);
+    }
+  }
+  
+  delay(1000);  //waits 1 second after each loop
+}
+//\/
